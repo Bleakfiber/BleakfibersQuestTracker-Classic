@@ -1,0 +1,26 @@
+name: Release Addon to CurseForge
+
+on:
+  push:
+  # This triggers the action whenever you push a version tag like v1.0.0
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Optional: If you want to automatically zip your addon excluding dev files
+      - name: Package Addon
+        run: |
+          mkdir -p output/BleakfiberQuestTracker
+          # Copy your addon files into the release folder, ignoring git/workflows
+          rsync -av --exclude='.git' --exclude='.github' --exclude='output' ./ output/BleakfiberQuestTracker/
+
+      - name: Upload to CurseForge
+        uses:- ncipollo/release-action@v1 # Optional if you want GitHub releases too, but for CurseForge specifically use a dedicated uploader action:
+        # Below is using the official/community CurseForge uploader action:
+        uses: pyjamasam/cached-action@main # or use the specific action marketplace plugin below
