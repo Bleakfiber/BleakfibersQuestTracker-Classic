@@ -1,0 +1,21 @@
+## Interface: 11509
+## Title: |cff00c0ffBleakfiber's Quest Tracker|r
+## Notes: A standalone, modular quest tracker with optional ElvUI and Questie integrations.
+## Author: Bleakfiber
+## Version: 1.0.0
+## SavedVariables: BleakfiberTrackerDB
+## X-License: Restricted - Source Available (All Rights Reserved, No Derivatives)
+## X-Website: https://github.com/Bleakfiber/BleakfiberQuestTracker-Classic
+
+## OptionalDeps: Ace3, LibSharedMedia-3.0, Questie, ElvUI
+
+Libs\Libs.xml
+Core.lua
+Config.lua
+TrackerFrame.lua
+Modules\StandaloneTracker.lua
+Modules\ElvUIIntegration.lua
+Modules\QuestieIntegration.lua
+Modules\SocialModule.lua
+
+
