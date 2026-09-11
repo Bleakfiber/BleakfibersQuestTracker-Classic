@@ -838,9 +838,12 @@ function Tracker:SetQuestCount(trackedCount, numQuests, maxQuests)
         local _, n = GetNumQuestLogEntries()
         numQuests = n or 0
     end
+    numQuests = tonumber(numQuests) or 0
+
     if not maxQuests then
         maxQuests = (C_QuestLog and C_QuestLog.GetMaxNumQuestsCanAccept and C_QuestLog.GetMaxNumQuestsCanAccept()) or MAX_QUESTLOG_QUESTS or 20
     end
+    maxQuests = tonumber(maxQuests) or 20
 
     local hCfg = (ns.db and ns.db.headers) or {}
     local countFormat = hCfg.countFormat or "short"

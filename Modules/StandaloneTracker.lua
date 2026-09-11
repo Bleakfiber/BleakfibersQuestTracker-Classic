@@ -27,7 +27,7 @@ end
 
 -- Helper: Format Quest Title with Level, Difficulty Color and Badges
 local function GetFormattedQuestTitle(questInfo)
-    local level = questInfo.level or 0
+    local level = tonumber(questInfo.level) or 0
     local title = questInfo.title or "Unknown Quest"
     local color = { r = 1, g = 1, b = 1 }
     local db = ns.db
@@ -45,15 +45,28 @@ local function GetFormattedQuestTitle(questInfo)
             badge = "D"
         elseif questInfo.isRaid then
             badge = "R"
-        elseif questInfo.suggestedGroup and questInfo.suggestedGroup > 1 then
-            badge = "+" .. questInfo.suggestedGroup
         elseif questInfo.isElite then
             badge = "+"
+        else
+            local numGroup = tonumber(questInfo.suggestedGroup)
+            if numGroup and numGroup > 1 then
+                badge = "+" .. numGroup
+            elseif type(questInfo.suggestedGroup) == "string" then
+                local sgLower = questInfo.suggestedGroup:lower()
+                if sgLower:find("dungeon") or sgLower == "d" then
+                    badge = "D"
+                elseif sgLower:find("raid") or sgLower == "r" then
+                    badge = "R"
+                elseif sgLower:find("elite") or sgLower == "+" then
+                    badge = "+"
+                end
+            end
         end
     end
 
     local tag = ""
-    if questInfo.frequency and questInfo.frequency > 1 then
+    local freq = tonumber(questInfo.frequency)
+    if freq and freq > 1 then
         tag = " |cff00ccff[Daily]|r"
     end
     
@@ -770,7 +783,9 @@ function StandaloneTracker:GetTrackedQuests()
                 frequency = info.frequency
                 questID = info.questID
             end
-        else
+        end
+
+        if not title and GetQuestLogTitle then
             title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID = GetQuestLogTitle(i)
         end
 
@@ -858,8 +873,8 @@ function StandaloneTracker:GetTrackedQuests()
                 if tagInfo then
                     if type(tagInfo) == "table" then
                         isElite = tagInfo.isElite or (tagInfo.tagID == 1)
-                        isDungeon = (tagInfo.tagID == 81 or tagInfo.tagName == "Dungeon")
-                        isRaid = (tagInfo.tagID == 62 or tagInfo.tagName == "Raid")
+                        isDungeon = (tagInfo.tagID == 81 or tagInfo.tagName == "Dungeon" or tagInfo.tagName == _G.DUNGEON)
+                        isRaid = (tagInfo.tagID == 62 or tagInfo.tagName == "Raid" or tagInfo.tagName == _G.RAID)
                     elseif type(tagInfo) == "number" then
                         isElite = (tagInfo == 1)
                         isDungeon = (tagInfo == 81)
@@ -867,23 +882,40 @@ function StandaloneTracker:GetTrackedQuests()
                     end
                 end
 
+                -- Parse questTag / suggestedGroup (in Classic Era, return #3 of GetQuestLogTitle is questTag e.g. "Dungeon", "Elite", "Raid")
+                local numericGroup = 0
+                if type(suggestedGroup) == "string" then
+                    local sLower = suggestedGroup:lower()
+                    if sLower == "dungeon" or suggestedGroup == _G.DUNGEON or sLower:find("dungeon") then
+                        isDungeon = true
+                    elseif sLower == "raid" or suggestedGroup == _G.RAID or sLower:find("raid") then
+                        isRaid = true
+                    elseif sLower == "elite" or suggestedGroup == _G.ELITE or sLower:find("elite") then
+                        isElite = true
+                    else
+                        numericGroup = tonumber(suggestedGroup) or 0
+                    end
+                elseif type(suggestedGroup) == "number" then
+                    numericGroup = suggestedGroup
+                end
+
                 table.insert(quests, {
                     questLogIndex = i,
                     questID = questID,
                     title = title,
-                    level = level or 0,
-                    suggestedGroup = suggestedGroup or 0,
+                    level = tonumber(level) or 0,
+                    suggestedGroup = numericGroup,
                     isElite = isElite,
                     isDungeon = isDungeon,
                     isRaid = isRaid,
                     zone = activeZoneHeader,
                     isComplete = (isComplete == 1 or isComplete == true),
-                    frequency = frequency or 1,
+                    frequency = tonumber(frequency) or 1,
                     objectives = objectives,
                     itemLink = itemLink,
                     itemTexture = itemTexture,
                     itemID = itemID,
-                    numItems = numItems,
+                    numItems = tonumber(numItems) or 0,
                     distance = 999999, -- Default fallback distance
                 })
             end
@@ -906,14 +938,36 @@ function StandaloneTracker:GetTrackedQuests()
         end
 
         if sortMode == "distance" and ns.QuestieModule and ns.QuestieModule.GetQuestDistance then
-            return a.distance < b.distance
-        elseif sortMode == "zone" then
-            if a.zone == b.zone then
-                return a.level < b.level
+            local distA = tonumber(a.distance) or 999999
+            local distB = tonumber(b.distance) or 999999
+            if distA ~= distB then
+                return distA < distB
             end
-            return a.zone < b.zone
+            local lvlA = tonumber(a.level) or 0
+            local lvlB = tonumber(b.level) or 0
+            if lvlA ~= lvlB then
+                return lvlA < lvlB
+            end
+            return (a.questID or 0) < (b.questID or 0)
+        elseif sortMode == "zone" then
+            local zoneA = tostring(a.zone or "")
+            local zoneB = tostring(b.zone or "")
+            if zoneA == zoneB then
+                local lvlA = tonumber(a.level) or 0
+                local lvlB = tonumber(b.level) or 0
+                if lvlA ~= lvlB then
+                    return lvlA < lvlB
+                end
+                return (a.questID or 0) < (b.questID or 0)
+            end
+            return zoneA < zoneB
         else -- "level"
-            return a.level < b.level
+            local lvlA = tonumber(a.level) or 0
+            local lvlB = tonumber(b.level) or 0
+            if lvlA ~= lvlB then
+                return lvlA < lvlB
+            end
+            return (a.questID or 0) < (b.questID or 0)
         end
     end)
 
@@ -928,11 +982,6 @@ local function RenderQuestBlock(content, qInfo, yOffset, lineSpacing)
     block:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -yOffset)
     block:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -yOffset)
     block.header.questInfo = qInfo
-
-    -- Format and Set Title
-    block.header.title:SetText(GetFormattedQuestTitle(qInfo))
-    local titleSize = StandaloneTracker.titleSize or 13
-    local currentBlockHeight = titleSize + 6
 
     -- Collapsed State (Default is expanded; collapsed only if explicitly marked true)
     local questKey = qInfo.questID or qInfo.title
@@ -966,7 +1015,8 @@ local function RenderQuestBlock(content, qInfo, yOffset, lineSpacing)
         itemBtn:ClearAllPoints()
         itemBtn:SetPoint("TOPRIGHT", block.header, "TOPRIGHT", 0, 0)
         itemBtn.icon:SetTexture(qInfo.itemTexture)
-        itemBtn.count:SetText(qInfo.numItems and qInfo.numItems > 1 and qInfo.numItems or "")
+        local itemCount = tonumber(qInfo.numItems) or 0
+        itemBtn.count:SetText(itemCount > 1 and tostring(itemCount) or "")
         itemBtn.itemLink = qInfo.itemLink
         itemBtn.itemID = qInfo.itemID
         if not InCombatLockdown() then
